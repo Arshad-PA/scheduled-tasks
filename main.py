@@ -1,38 +1,72 @@
-# To run and test the code you need to update 4 places:
-# 1. Change MY_EMAIL/MY_PASSWORD to your own details.
-# 2. Go to your email provider and make it allow less secure apps.
-# 3. Update the SMTP ADDRESS to match your email provider.
-# 4. Update birthdays.csv to contain today's month and day.
-# See the solution video in the 100 Days of Python Course for explainations.
-
-
-from datetime import datetime
-import pandas
-import random
-import smtplib
 import os
+import requests
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 
-# import os and use it to get the Github repository secrets
-MY_EMAIL = os.environ.get("MY_EMAIL")
-MY_PASSWORD = os.environ.get("MY_PASSWORD")
+# -----------------------------
+# Environment Variables
+# -----------------------------
+API_KEY = os.environ.get("OWM_API_KEY")
+TWILIO_ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
 
-today = datetime.now()
-today_tuple = (today.month, today.day)
+# -----------------------------
+# OpenWeather API
+# -----------------------------
+ENDPOINT = "https://api.openweathermap.org/data/2.5/forecast"
 
-data = pandas.read_csv("birthdays.csv")
-birthdays_dict = {(data_row["month"], data_row["day"])                  : data_row for (index, data_row) in data.iterrows()}
-if today_tuple in birthdays_dict:
-    birthday_person = birthdays_dict[today_tuple]
-    file_path = f"letter_templates/letter_{random.randint(1, 3)}.txt"
-    with open(file_path) as letter_file:
-        contents = letter_file.read()
-        contents = contents.replace("[NAME]", birthday_person["name"])
+weather_params = {
+    "lat": 54.1930633,
+    "lon": -2.9094791,
+    "appid": API_KEY,
+    "cnt": 4,      # Next 12 hours (4 forecasts)
+}
 
-    with smtplib.SMTP("YOUR EMAIL PROVIDER SMTP SERVER ADDRESS") as connection:
-        connection.starttls()
-        connection.login(MY_EMAIL, MY_PASSWORD)
-        connection.sendmail(
-            from_addr=MY_EMAIL,
-            to_addrs=birthday_person["email"],
-            msg=f"Subject:Happy Birthday!\n\n{contents}"
-        )
+# -----------------------------
+# Get Weather Data
+# -----------------------------
+response = requests.get(ENDPOINT, params=weather_params)
+response.raise_for_status()
+
+weather_data = response.json()
+
+will_rain = False
+
+# -----------------------------
+# Check the next 12 hours
+# -----------------------------
+for forecast in weather_data["list"]:
+    weather_id = forecast["weather"][0]["id"]
+
+    # Weather IDs below 700 indicate rain, snow, etc.
+    if weather_id < 700:
+        will_rain = True
+        break
+
+# -----------------------------
+# Message to send
+# -----------------------------
+if will_rain:
+    sms_body = "☔ It's going to rain today. Don't forget to take an umbrella!"
+else:
+    sms_body = "☀ No rain expected today. Have a great day!"
+
+# -----------------------------
+# Send SMS
+# -----------------------------
+client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+try:
+    message = client.messages.create(
+        body=sms_body,
+        from_=TWILIO_PHONE_NUMBER,
+        to="+918943098094"     # Replace with your verified phone number
+    )
+
+    print("Message sent successfully!")
+    print("Message SID:", message.sid)
+
+except TwilioRestException as e:
+    print("Twilio Error Code:", e.code)
+    print("Twilio Error Message:", e.msg)
