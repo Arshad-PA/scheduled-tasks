@@ -4,7 +4,7 @@ on:
   schedule:
     # Runs every day at 1:25 AM UK time (BST)
     # GitHub uses UTC, so 00:25 UTC
-    - cron: '25 0 * * *'
+    - cron: '35 0 * * *'
 
   # Allows manual testing from Actions tab
   workflow_dispatch:
