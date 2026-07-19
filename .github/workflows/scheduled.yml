@@ -2,9 +2,15 @@ name: Daily Script
 
 on:
   schedule:
-    # Runs every day at 1:25 AM UK time (BST)
-    # GitHub uses UTC, so 00:25 UTC
-    - cron: '35 0 * * *'
+    # Runs every 6 hours (4 times per day)
+    # GitHub uses UTC time
+    #
+    # 00:00 UTC = 01:00 AM UK (BST)
+    # 06:00 UTC = 07:00 AM UK (BST)
+    # 12:00 UTC = 01:00 PM UK (BST)
+    # 18:00 UTC = 07:00 PM UK (BST)
+    #
+    - cron: '0 */6 * * *'
 
   # Allows manual testing from Actions tab
   workflow_dispatch:
